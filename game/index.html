@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>랜덤 뽑기 - 뽑기 시뮬레이터</title>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <h1>데이터 가이드 랜덤 뽑기</h1>
+    </header>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="main-container">
+        <!-- 좌측: 배틀 보드 -->
+        <div class="battle-board">
+            <canvas id="gameCanvas" width="1024" height="640"></canvas>
+            
+            <!-- 아이템 설명 영역 -->
+            <div class="item-description">
+                <h3>🥊 아이템 설명</h3>
+                <div class="item-cards">
+                    <div class="item-card">
+                        <div class="item-icon">⚡</div>
+                        <div class="item-info">
+                            <h4>스피드</h4>
+                            <p>일정 시간 동안 이동 속도 증가<br><strong>중첩 시:</strong> 2배 → 4배 → 6배 …</p>
+                        </div>
+                    </div>
+                    <div class="item-card">
+                        <div class="item-icon">💖</div>
+                        <div class="item-info">
+                            <h4>부활</h4>
+                            <p>탈락한 참가자가 다시 부활<br><strong>게임당 횟수 제한 있음</strong></p>
+                        </div>
+                    </div>
+                    <div class="item-card">
+                        <div class="item-icon">🥊</div>
+                        <div class="item-info">
+                            <h4>공격</h4>
+                            <p>일정 시간 동안 크기 무시하고<br><strong>상대를 처치 가능</strong></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 우측: 사이드바 -->
+        <div class="sidebar">
+            
+            
+            <!-- 참가자 선택 -->
+            <div class="section">
+                <div class="section-header">
+                    <h3>인원 선택</h3>
+                    <div class="selection-info">
+                        <span class="counter">선택: <span id="selectedCount">0</span>명</span>
+                        <button id="selectAllBtn" class="btn-small">전체 선택</button>
+                    </div>
+                </div>
+                
+                <div class="participant-list" id="participantList">
+                    <!-- 참가자 목록이 여기에 동적으로 생성됩니다 -->
+                </div>
+            </div>
+            
+            <!-- 게임 설정 -->
+            <div class="section">
+                <h3>게임 설정</h3>
+                
+                <div class="form-group">
+                    <label for="targetCount">남길 인원 수:</label>
+                    <input type="number" id="targetCount" min="1" value="1" class="form-input">
+                    <small class="form-help">1 ≤ N < 선택 인원 수</small>
+                </div>
+                
+
+            </div>
+            
+            <!-- 게임 컨트롤 -->
+            <div class="section">
+                <h3>게임 컨트롤</h3>
+                
+                <div class="button-group">
+                    <button id="startBtn" class="btn btn-primary" disabled>Start</button>
+                <button id="recordBtn" class="btn btn-secondary" disabled>화면 녹화</button>
+                </div>
+            </div>
+            
+
+            
+
+            
+            <!-- 당첨자 리스트 (게임 종료 시 표시) -->
+            <div class="section" id="winnerSection" style="display: none;">
+                <h3>🎉 당첨자 리스트</h3>
+                <div id="winnerList" class="winner-list">
+                    <!-- 당첨자들이 여기에 표시됩니다 -->
+                </div>
+                <button id="downloadCsvBtn" class="btn btn-success">CSV 다운로드</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 스크립트 -->
+    <script type="module" src="main.js"></script>
+    
+    <!-- 직접 참가자 목록 렌더링 (디버깅용) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('직접 스크립트 실행');
+            
+            const participantList = document.getElementById('participantList');
+            console.log('participantList:', participantList);
+            
+            if (participantList) {
+                const participants = [
+                    { id: "bonah.fide", name: "유지우" },
+                    { id: "claire.hk", name: "김희경" },
+                    { id: "emma.kang", name: "강경임" },
+                    { id: "genie.lamp", name: "심진희" },
+                    { id: "izzy.so", name: "송현경" },
+                    { id: "jadey.yoon", name: "이지윤" },
+                    { id: "jully.lee", name: "이정은" },
+                    { id: "karel.kang", name: "강기곤" },
+                    { id: "kent.coach", name: "장한일" },
+                    { id: "kimberly.lim", name: "임수연" },
+                    { id: "kuma.mon", name: "고슬기" },
+                    { id: "luci.dor", name: "김연희" },
+                    { id: "maddison.ko", name: "고명석" },
+                    { id: "miya.0", name: "이다솜" },
+                    { id: "nathan.kwon", name: "권성원" },
+                    { id: "noah.se", name: "신송은" },
+                    { id: "tomtom.s", name: "신은영" },
+                    { id: "william.lim", name: "임원국" },
+                    { id: "zo.7", name: "지영은" }
+                ];
+                
+                participantList.innerHTML = '';
+                
+                participants.forEach(participant => {
+                    const item = document.createElement('div');
+                    item.className = 'participant-item';
+                    item.dataset.id = participant.id;
+                    
+                    const checkbox = document.createElement('div');
+                    checkbox.className = 'radio-checkbox';
+                    checkbox.dataset.id = participant.id;
+                    
+                    const info = document.createElement('div');
+                    info.className = 'participant-info';
+                    
+                    const idSpan = document.createElement('span');
+                    idSpan.className = 'participant-id';
+                    idSpan.textContent = participant.id;
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'participant-name';
+                    nameSpan.textContent = participant.name;
+                    
+                    info.appendChild(idSpan);
+                    info.appendChild(nameSpan);
+                    
+                    item.appendChild(checkbox);
+                    item.appendChild(info);
+                    
+                    // 클릭 이벤트
+                    item.addEventListener('click', () => {
+                        const checkbox = item.querySelector('.radio-checkbox');
+                        const isSelected = checkbox.classList.contains('selected');
+                        
+                        if (isSelected) {
+                            checkbox.classList.remove('selected');
+                        } else {
+                            checkbox.classList.add('selected');
+                        }
+                        
+                        // 선택된 참가자 수 업데이트
+                        const selectedCount = document.getElementById('selectedCount');
+                        if (selectedCount) {
+                            const selectedItems = document.querySelectorAll('.radio-checkbox.selected');
+                            selectedCount.textContent = selectedItems.length;
+                        }
+                        
+                        // Start 버튼 활성화/비활성화
+                        const startBtn = document.getElementById('startBtn');
+                        if (startBtn) {
+                            const selectedCount = document.querySelectorAll('.radio-checkbox.selected').length;
+                            const targetCount = parseInt(document.getElementById('targetCount').value) || 1;
+                            const canStart = selectedCount >= 2 && targetCount >= 1 && targetCount < selectedCount;
+                            startBtn.disabled = !canStart;
+                        }
+                    });
+                    
+                    participantList.appendChild(item);
+                });
+                
+                console.log('참가자 목록 직접 렌더링 완료');
+                
+                // 전체 선택/해제 버튼 기능 구현
+                const selectAllBtn = document.getElementById('selectAllBtn');
+                if (selectAllBtn) {
+                    selectAllBtn.addEventListener('click', () => {
+                        const allCheckboxes = document.querySelectorAll('.radio-checkbox');
+                        const selectedCheckboxes = document.querySelectorAll('.radio-checkbox.selected');
+                        
+                        if (selectedCheckboxes.length === allCheckboxes.length) {
+                            // 모두 선택된 경우 전체 해제
+                            allCheckboxes.forEach(checkbox => checkbox.classList.remove('selected'));
+                            selectAllBtn.textContent = '전체 선택';
+                        } else {
+                            // 전체 선택
+                            allCheckboxes.forEach(checkbox => checkbox.classList.add('selected'));
+                            selectAllBtn.textContent = '전체 해제';
+                        }
+                        
+                        // 선택된 참가자 수 업데이트
+                        const selectedCount = document.getElementById('selectedCount');
+                        if (selectedCount) {
+                            const selectedItems = document.querySelectorAll('.radio-checkbox.selected');
+                            selectedCount.textContent = selectedItems.length;
+                        }
+                        
+                        // Start 버튼 활성화/비활성화
+                        const startBtn = document.getElementById('startBtn');
+                        if (startBtn) {
+                            const selectedCount = document.querySelectorAll('.radio-checkbox.selected').length;
+                            const targetCount = parseInt(document.getElementById('targetCount').value) || 1;
+                            const canStart = selectedCount >= 2 && targetCount >= 1 && targetCount < selectedCount;
+                            startBtn.disabled = !canStart;
+                        }
+                    });
+                }
+                
+                // Start 버튼 이벤트 추가
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) {
+                    startBtn.addEventListener('click', () => {
+                        console.log('Start 버튼 클릭됨!');
+                        
+                        const selectedItems = document.querySelectorAll('.radio-checkbox.selected');
+                        const selectedCount = selectedItems.length;
+                        const targetCount = parseInt(document.getElementById('targetCount').value) || 1;
+                        
+                        console.log('선택된 참가자 수:', selectedCount);
+                        console.log('목표 인원 수:', targetCount);
+                        
+                        if (selectedCount < 2) {
+                            alert('최소 2명 이상의 참가자를 선택해주세요.');
+                            return;
+                        }
+                        
+                        if (targetCount < 1 || targetCount >= selectedCount) {
+                            alert('목표 인원 수는 1 이상이고 선택된 참가자 수보다 작아야 합니다.');
+                            return;
+                        }
+                        
+                        // 녹화 여부 확인
+                        const shouldRecord = confirm('화면 녹화하시겠습니까?');
+                        
+                        // 게임 시작 로직 (간단한 테스트)
+                        alert(`게임 시작! 선택된 참가자: ${selectedCount}명, 목표: ${targetCount}명`);
+                        
+                        // Start 버튼 비활성화
+                        startBtn.disabled = true;
+                        
+                        // 녹화 버튼 활성화 (녹화를 선택한 경우에만)
+                        const recordBtn = document.getElementById('recordBtn');
+                        if (recordBtn) {
+                            recordBtn.disabled = !shouldRecord;
+                            
+                            // 녹화를 선택한 경우 자동으로 녹화 시작
+                            if (shouldRecord) {
+                                // 캔버스가 준비된 후 녹화 시작
+                                setTimeout(() => {
+                                    startRecording(canvas);
+                                }, 100);
+                            }
+                            
+                            // 녹화 버튼 이벤트 리스너 추가
+                            recordBtn.addEventListener('click', () => {
+                                if (!isRecording) {
+                                    // 녹화 시작
+                                    startRecording(canvas);
+                                } else {
+                                    // 녹화 중지
+                                    stopRecording();
+                                }
+                            });
+                        }
+                        
+                        // 게임 상태 표시
+                        const statusDiv = document.createElement('div');
+                        statusDiv.style.cssText = 'color: green; margin-top: 10px; font-weight: bold;';
+                        statusDiv.textContent = '게임 진행 중...';
+                        startBtn.parentNode.appendChild(statusDiv);
+                        
+                        // 캔버스에 실제 게임 구현
+                        const canvas = document.getElementById('gameCanvas');
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            
+                            // 게임 설정
+                            const BASE_SPEED = 2.5; // 기본 이동 속도 (1.6 → 2.5로 증가)
+                            const ALPHA = 2.5; // 가속 민감도 (1.0 → 2.5로 증가)
+                            const SPEED_MIN = 2.0; // 최소 속도 (1.2 → 2.0으로 증가)
+                            const SPEED_MAX = 15.0; // 최대 속도 (8.0 → 15.0으로 증가)
+                            const GROWTH_RATE = 0.3; // 성장률 (30%)
+                            const SAME_SIZE_GROWTH_MODE = 'percentage'; // 'percentage' 또는 'fixed'
+                            const SAME_SIZE_GROWTH_VALUE = 0.3; // 퍼센트 모드: 0.3, 고정 모드: 1.0
+                            const ITEM_SPAWN_INTERVAL = 2000; // 아이템 스폰 주기 (2초)
+                            
+                            // 시간 기반 점진 가속 설정
+                            const TIME_ACCELERATION_FACTOR = 0.2; // 시간 가속 계수 (0.1 → 0.2 = 20%씩 증가)
+                            const TIME_ACCELERATION_INTERVAL = 3000; // 가속 적용 주기 (5초 → 3초마다)
+                            const MAX_TIME_ACCELERATION = 5.0; // 최대 시간 가속 배율 (3배 → 5배)
+                            
+                            // 녹화 관련 변수
+                            let mediaRecorder = null;
+                            let recordedChunks = [];
+                            let isRecording = false;
+                            
+                            // 부활 예산 규칙
+                            const REVIVE_BUDGET_RULES = {
+                                3: 0,      // 3명 이하: 부활 0회
+                                9: 1,      // 4-9명: 부활 1회
+                                14: 2,     // 10-14명: 부활 1-2회 (랜덤)
+                                999: 2     // 15명 이상: 부활 2회
+                            };
+                            
+                            // 부활 예산 계산 함수
+                            function calculateReviveBudget(initialCount) {
+                                for (const [maxCount, budget] of Object.entries(REVIVE_BUDGET_RULES)) {
+                                    if (initialCount <= parseInt(maxCount)) {
+                                        if (budget === 2 && initialCount <= 14) {
+                                            // 10-14명일 때는 1-2회 중 랜덤
+                                            return Math.random() < 0.5 ? 1 : 2;
+                                        }
+                                        return budget;
+                                    }
+                                }
+                                return 0;
+                            }
+                            
+                            // 시간 기반 점진 가속 계산 함수
+                            function calculateTimeAcceleration(currentTime, gameStartTime, lastAccelerationTime, currentMultiplier) {
+                                const elapsedTime = currentTime - gameStartTime;
+                                const timeSinceLastAcceleration = currentTime - lastAccelerationTime;
+                                
+                                // 가속 적용 주기마다 점진적으로 가속
+                                if (timeSinceLastAcceleration >= TIME_ACCELERATION_INTERVAL) {
+                                    const newMultiplier = Math.min(
+                                        MAX_TIME_ACCELERATION,
+                                        currentMultiplier + TIME_ACCELERATION_FACTOR
+                                    );
+                                    
+                                    console.log(`시간 가속 적용: ${currentMultiplier.toFixed(2)}x → ${newMultiplier.toFixed(2)}x (경과: ${(elapsedTime/1000).toFixed(1)}초)`);
+                                    
+                                    return {
+                                        multiplier: newMultiplier,
+                                        lastTime: currentTime
+                                    };
+                                }
+                                
+                                return {
+                                    multiplier: currentMultiplier,
+                                    lastTime: lastAccelerationTime
+                                };
+                            }
+                            
+                            // 인원수 기반 추가 가속 계산 함수
+                            function calculateParticipantBonus(survivors, initialCount) {
+                                const survivorRatio = survivors / initialCount;
+                                
+                                // 생존자 비율이 낮을수록 추가 가속
+                                if (survivorRatio <= 0.3) {
+                                    return 2.5; // 30% 이하: 2.5배 추가 가속
+                                } else if (survivorRatio <= 0.5) {
+                                    return 2.0; // 50% 이하: 2.0배 추가 가속
+                                } else if (survivorRatio <= 0.7) {
+                                    return 1.5; // 70% 이하: 1.5배 추가 가속
+                                } else {
+                                    return 1.0; // 70% 초과: 기본 가속
+                                }
+                            }
+                            
+                            // 녹화 시작 함수
+                            function startRecording(canvas) {
+                                try {
+                                    const stream = canvas.captureStream(30); // 30 FPS
+                                    mediaRecorder = new MediaRecorder(stream, {
+                                        mimeType: 'video/webm;codecs=vp9'
+                                    });
+                                    
+                                    recordedChunks = [];
+                                    
+                                    mediaRecorder.ondataavailable = (event) => {
+                                        if (event.data.size > 0) {
+                                            recordedChunks.push(event.data);
+                                        }
+                                    };
+                                    
+                                    mediaRecorder.onstop = () => {
+                                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `뽑기시뮬레이터_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+                                        a.click();
+                                        URL.revokeObjectURL(url);
+                                    };
+                                    
+                                    mediaRecorder.start();
+                                    isRecording = true;
+                                    
+                                    // 버튼 상태 변경
+                                    const recordBtn = document.getElementById('recordBtn');
+                                    if (recordBtn) {
+                                        recordBtn.textContent = '녹화 중… (중지)';
+                                        recordBtn.className = 'btn btn-danger';
+                                    }
+                                    
+                                    console.log('녹화 시작됨');
+                                } catch (error) {
+                                    console.error('녹화 시작 실패:', error);
+                                    alert('녹화를 시작할 수 없습니다. 브라우저가 녹화를 지원하지 않습니다.');
+                                }
+                            }
+                            
+                            // 녹화 중지 함수
+                            function stopRecording() {
+                                if (mediaRecorder && isRecording) {
+                                    mediaRecorder.stop();
+                                    isRecording = false;
+                                    
+                                    // 버튼 상태 복원
+                                    const recordBtn = document.getElementById('recordBtn');
+                                    if (recordBtn) {
+                                        recordBtn.className = 'btn btn-secondary';
+                                        recordBtn.textContent = '화면 녹화';
+                                    }
+                                    
+                                    console.log('녹화 중지됨 - 자동 저장 완료');
+                                }
+                            }
+                            
+                            // 선택된 참가자 정보 가져오기
+                            const selectedParticipants = [];
+                            document.querySelectorAll('.radio-checkbox.selected').forEach((checkbox, index) => {
+                                const participantId = checkbox.dataset.id;
+                                const participantName = checkbox.parentNode.querySelector('.participant-name').textContent;
+                                selectedParticipants.push({
+                                    id: participantId,
+                                    name: participantName,
+                                    x: Math.random() * (canvas.width - 100) + 50,
+                                    y: Math.random() * (canvas.height - 100) + 50,
+                                    vx: (Math.random() - 0.5) * BASE_SPEED,
+                                    vy: (Math.random() - 0.5) * BASE_SPEED,
+                                    radius: 20,
+                                    color: `hsl(${index * 360 / selectedCount}, 70%, 60%)`,
+                                    speedMultiplier: 1.0,
+                                    speedEndTime: 0,
+                                    isInvincible: false,
+                                    invincibleEndTime: 0,
+                                    hasShuriken: false,
+                                    shurikenEndTime: 0
+                                });
+                            });
+                            
+                            // 아이템 배열
+                            const items = [];
+                            let lastItemSpawn = Date.now();
+                            
+                            // 아이템 생성 함수
+                            function spawnItem() {
+                                let itemTypes = ['speed', 'shuriken'];
+                                let weights = [0.7, 0.3];
+                                
+                                // 부활 예산이 남아있을 때만 부활 아이템 추가
+                                if (reviveUsed < reviveBudget) {
+                                    itemTypes.push('revive');
+                                    weights = [0.5, 0.2, 0.3]; // 스피드, 부활, 표창
+                                }
+                                
+                                // 가중치 기반 랜덤 선택
+                                let random = Math.random();
+                                let selectedType = itemTypes[0];
+                                for (let i = 0; i < weights.length; i++) {
+                                    if (random < weights[i]) {
+                                        selectedType = itemTypes[i];
+                                        break;
+                                    }
+                                    random -= weights[i];
+                                }
+                                
+                                const item = {
+                                    x: Math.random() * (canvas.width - 60) + 30,
+                                    y: Math.random() * (canvas.height - 60) + 30,
+                                    type: selectedType,
+                                    radius: 24, // 12에서 24로 2배 증가
+                                    color: selectedType === 'speed' ? '#00ff00' : 
+                                           selectedType === 'revive' ? '#ff00ff' : '#ff0000'
+                                };
+                                
+                                items.push(item);
+                            }
+                            
+                            // 게임 상태
+                            let gameRunning = true;
+                            let survivors = selectedCount;
+                            let initialCount = selectedCount; // 초기 참가자 수 (고정)
+                            let gameStartTime = Date.now();
+                            let reviveBudget = calculateReviveBudget(initialCount); // 부활 예산
+                            let reviveUsed = 0; // 사용된 부활 횟수
+                            
+                            // 시간 기반 가속 상태
+                            let timeAccelerationMultiplier = 1.0; // 현재 시간 가속 배율
+                            let lastAccelerationTime = Date.now(); // 마지막 가속 적용 시간
+                            
+                            // 게임 루프
+                            const gameLoop = () => {
+                                if (!gameRunning) return;
+                                
+                                const currentTime = Date.now();
+                                
+                                // 시간 기반 점진 가속 계산 및 적용
+                                const accelerationResult = calculateTimeAcceleration(
+                                    currentTime, 
+                                    gameStartTime, 
+                                    lastAccelerationTime, 
+                                    timeAccelerationMultiplier
+                                );
+                                timeAccelerationMultiplier = accelerationResult.multiplier;
+                                lastAccelerationTime = accelerationResult.lastTime;
+                                
+                                // 복싱장 배경 그리기
+                                // 메인 링 배경
+                                ctx.fillStyle = '#8B4513'; // 갈색 링
+                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                
+                                // 링 테두리 (복싱장 느낌)
+                                ctx.strokeStyle = '#654321';
+                                ctx.lineWidth = 8;
+                                ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+                                
+                                // 링 내부 (매트 느낌)
+                                ctx.fillStyle = '#D2691E';
+                                ctx.fillRect(12, 12, canvas.width - 24, canvas.height - 24);
+                                
+                                // 링 중앙 원 (복싱장 중앙 마크)
+                                ctx.strokeStyle = '#654321';
+                                ctx.lineWidth = 3;
+                                ctx.beginPath();
+                                ctx.arc(canvas.width / 2, canvas.height / 2, 80, 0, Math.PI * 2);
+                                ctx.stroke();
+                                
+                                // 코너 마크 (복싱장 코너)
+                                const cornerSize = 20;
+                                ctx.fillStyle = '#654321';
+                                // 좌상단
+                                ctx.fillRect(12, 12, cornerSize, cornerSize);
+                                // 우상단
+                                ctx.fillRect(canvas.width - 32, 12, cornerSize, cornerSize);
+                                // 좌하단
+                                ctx.fillRect(12, canvas.height - 32, cornerSize, cornerSize);
+                                // 우하단
+                                ctx.fillRect(canvas.width - 32, canvas.height - 32, cornerSize, cornerSize);
+                                
+                                // 제목과 정보 (복싱장 스타일)
+                                ctx.fillStyle = '#FFF';
+                                ctx.font = 'bold 24px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText('🥊 뽑기 시뮬레이터 🥊', canvas.width / 2, 30);
+                                
+                                ctx.font = 'bold 16px Arial';
+                                ctx.fillText(`생존자: ${survivors}명 / 목표: ${targetCount}명`, canvas.width / 2, 55);
+                                ctx.fillText(`부활: ${reviveUsed}/${reviveBudget}회`, canvas.width / 2, 75);
+                                
+                                // 속도 스케일링 정보 (인원수 + 시간 가속 + 인원수 보너스)
+                                const speedScale = Math.pow(initialCount / survivors, ALPHA);
+                                const participantBonus = calculateParticipantBonus(survivors, initialCount);
+                                const baseSpeedScaled = Math.max(SPEED_MIN, Math.min(SPEED_MAX, BASE_SPEED * speedScale * timeAccelerationMultiplier * participantBonus));
+                                ctx.fillText(`속도 배율: ${baseSpeedScaled.toFixed(1)}x (인원: ${speedScale.toFixed(1)}x, 시간: ${timeAccelerationMultiplier.toFixed(1)}x, 보너스: ${participantBonus.toFixed(1)}x)`, canvas.width / 2, 95);
+                                
+                                // 아이템 스폰
+                                if (currentTime - lastItemSpawn > ITEM_SPAWN_INTERVAL) {
+                                    spawnItem();
+                                    lastItemSpawn = currentTime;
+                                }
+                                
+                                // 아이템 업데이트 및 그리기
+                                items.forEach(item => {
+                                    // 아이템 그리기 (복싱장 스타일)
+                                    // 아이템 그림자
+                                    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                                    ctx.beginPath();
+                                    ctx.arc(item.x + 3, item.y + 3, item.radius, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    
+                                    // 아이템 원 (복싱장 글로브 느낌)
+                                    const itemGradient = ctx.createRadialGradient(
+                                        item.x - item.radius * 0.3, 
+                                        item.y - item.radius * 0.3, 
+                                        0,
+                                        item.x, 
+                                        item.y, 
+                                        item.radius
+                                    );
+                                    itemGradient.addColorStop(0, item.color);
+                                    itemGradient.addColorStop(1, '#333');
+                                    
+                                    ctx.fillStyle = itemGradient;
+                                    ctx.beginPath();
+                                    ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    
+                                    // 아이템 테두리 (복싱장 글로브 느낌)
+                                    ctx.strokeStyle = '#654321';
+                                    ctx.lineWidth = 3;
+                                    ctx.stroke();
+                                    
+                                    // 내부 하이라이트 (복싱장 글로브 느낌)
+                                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                                    ctx.beginPath();
+                                    ctx.arc(item.x - item.radius * 0.3, item.y - item.radius * 0.3, item.radius * 0.4, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    
+                                    // 아이템 타입 표시 (복싱장 스타일)
+                                    ctx.fillStyle = '#FFF';
+                                    ctx.font = 'bold 24px Arial';
+                                    ctx.textAlign = 'center';
+                                    ctx.strokeStyle = '#000';
+                                    ctx.lineWidth = 2;
+                                    const symbol = item.type === 'speed' ? '⚡' : 
+                                                  item.type === 'revive' ? '💖' : '🥊';
+                                    ctx.strokeText(symbol, item.x, item.y + 8);
+                                    ctx.fillText(symbol, item.x, item.y + 8); // y+3에서 y+6으로 조정
+                                });
+                                
+                                // 참가자들 업데이트 및 그리기
+                                selectedParticipants.forEach((participant, index) => {
+                                    if (participant.radius <= 0) return; // 사망한 참가자
+                                    
+                                    // 버프 효과 업데이트
+                                    if (currentTime > participant.speedEndTime) {
+                                        participant.speedMultiplier = 1.0;
+                                    }
+                                    if (currentTime > participant.invincibleEndTime) {
+                                        participant.isInvincible = false;
+                                    }
+                                    if (currentTime > participant.shurikenEndTime) {
+                                        participant.hasShuriken = false;
+                                    }
+                                    
+                                    // 속도 스케일링 계산 (인원수 + 시간 가속 + 인원수 보너스)
+                                    const speedScale = Math.pow(initialCount / survivors, ALPHA);
+                                    const participantBonus = calculateParticipantBonus(survivors, initialCount);
+                                    const baseSpeedScaled = Math.max(SPEED_MIN, Math.min(SPEED_MAX, BASE_SPEED * speedScale * timeAccelerationMultiplier * participantBonus));
+                                    
+                                    // 위치 업데이트 (속도 스케일링 + 시간 가속 + 인원수 보너스 + 버프 적용)
+                                    participant.x += participant.vx * participant.speedMultiplier * (baseSpeedScaled / BASE_SPEED);
+                                    participant.y += participant.vy * participant.speedMultiplier * (baseSpeedScaled / BASE_SPEED);
+                                    
+                                    // 벽 충돌 처리
+                                    if (participant.x - participant.radius <= 0 || participant.x + participant.radius >= canvas.width) {
+                                        participant.vx *= -1;
+                                        participant.x = Math.max(participant.radius, Math.min(canvas.width - participant.radius, participant.x));
+                                    }
+                                    if (participant.y - participant.radius <= 0 || participant.y + participant.radius >= canvas.height) {
+                                        participant.vy *= -1;
+                                        participant.y = Math.max(participant.radius, Math.min(canvas.height - participant.radius, participant.y));
+                                    }
+                                    
+                                    // 아이템 수집 체크 (중복 수집 방지)
+                                    items.forEach(item => {
+                                        const dx = participant.x - item.x;
+                                        const dy = participant.y - item.y;
+                                        const distance = Math.sqrt(dx * dx + dy * dy);
+                                        
+                                        if (distance < participant.radius + item.radius) {
+                                            // 아이템 효과 적용
+                                            if (item.type === 'speed') {
+                                                // 스피드 아이템 중첩: 선형 증가 (1 + count)
+                                                participant.speedMultiplier += 1;
+                                                participant.speedEndTime = currentTime + 6000; // 6초 지속
+                                                console.log(`${participant.name}이(가) 스피드 아이템을 획득했습니다! (현재 배율: ${participant.speedMultiplier}x)`);
+                                            } else if (item.type === 'revive') {
+                                                // 부활 예산 체크
+                                                if (reviveUsed >= reviveBudget) {
+                                                    console.log('부활 예산이 소진되었습니다!');
+                                                    return;
+                                                }
+                                                
+                                                // 죽은 참가자 중 랜덤 부활
+                                                const deadParticipants = selectedParticipants.filter(p => p.radius <= 0);
+                                                if (deadParticipants.length > 0) {
+                                                    const revived = deadParticipants[Math.floor(Math.random() * deadParticipants.length)];
+                                                    revived.radius = 15;
+                                                    revived.x = Math.random() * (canvas.width - 100) + 50;
+                                                    revived.y = Math.random() * (canvas.height - 100) + 50;
+                                                    revived.isInvincible = true;
+                                                    revived.invincibleEndTime = currentTime + 800; // 0.8초 무적
+                                                    revived.speedMultiplier = 1.0; // 속도 버프 초기화
+                                                    revived.hasShuriken = false; // 표창 버프 초기화
+                                                    revived.speedEndTime = 0; // 속도 버프 시간 초기화
+                                                    survivors++;
+                                                    reviveUsed++;
+                                                    console.log(`${revived.name}이(가) 부활했습니다! (부활 ${reviveUsed}/${reviveBudget})`);
+                                                }
+                                            } else if (item.type === 'shuriken') {
+                                                participant.hasShuriken = true;
+                                                participant.shurikenEndTime = currentTime + 5000; // 5초 지속
+                                                console.log(`${participant.name}이(가) 표창 아이템을 획득했습니다!`);
+                                            }
+                                            
+                                            // 아이템 수집 후 즉시 제거
+                                            const itemIndex = items.indexOf(item);
+                                            if (itemIndex > -1) {
+                                                items.splice(itemIndex, 1);
+                                            }
+                                        }
+                                    });
+                                    
+                                    // 다른 참가자와의 충돌 처리
+                                    selectedParticipants.forEach((other, otherIndex) => {
+                                        if (index === otherIndex || other.radius <= 0) return;
+                                        
+                                        const dx = participant.x - other.x;
+                                        const dy = participant.y - other.y;
+                                        const distance = Math.sqrt(dx * dx + dy * dy);
+                                        
+                                        if (distance < participant.radius + other.radius) {
+                                            // 무적 상태 체크
+                                            if (participant.isInvincible || other.isInvincible) return;
+                                            
+                                            // 표창 아이템 체크
+                                            if (participant.hasShuriken) {
+                                                other.radius = 0;
+                                                survivors--;
+                                                console.log(`${participant.name}이(가) 표창으로 ${other.name}을(를) 처치했습니다!`);
+                                                return;
+                                            }
+                                            if (other.hasShuriken) {
+                                                participant.radius = 0;
+                                                survivors--;
+                                                console.log(`${other.name}이(가) 표창으로 ${participant.name}을(를) 처치했습니다!`);
+                                                return;
+                                            }
+                                            
+                                            // 일반 충돌 처리
+                                            if (participant.radius > other.radius) {
+                                                // 큰 참가자가 작은 참가자 흡수
+                                                participant.radius += other.radius * GROWTH_RATE;
+                                                other.radius = 0;
+                                                survivors--;
+                                                console.log(`${participant.name}이(가) ${other.name}을(를) 흡수했습니다!`);
+                                            } else if (other.radius > participant.radius) {
+                                                // 다른 참가자가 더 큰 경우
+                                                other.radius += participant.radius * GROWTH_RATE;
+                                                participant.radius = 0;
+                                                survivors--;
+                                                console.log(`${other.name}이(가) ${participant.name}을(를) 흡수했습니다!`);
+                                            } else {
+                                                // 동일한 크기 - 랜덤으로 승부 결정
+                                                const winner = Math.random() < 0.5 ? participant : other;
+                                                const loser = winner === participant ? other : participant;
+                                                
+                                                // 성장량 계산
+                                                let growthAmount;
+                                                if (SAME_SIZE_GROWTH_MODE === 'percentage') {
+                                                    growthAmount = loser.radius * SAME_SIZE_GROWTH_VALUE;
+                                                } else {
+                                                    growthAmount = SAME_SIZE_GROWTH_VALUE;
+                                                }
+                                                
+                                                winner.radius += growthAmount;
+                                                loser.radius = 0;
+                                                survivors--;
+                                                
+                                                console.log(`${winner.name}이(가) ${loser.name}과(와)의 동률 대결에서 승리했습니다! (성장: +${growthAmount.toFixed(1)})`);
+                                            }
+                                            
+                                            // 충돌 효과
+                                            const effectX = (participant.x + other.x) / 2;
+                                            const effectY = (participant.y + other.y) / 2;
+                                            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                                            ctx.beginPath();
+                                            ctx.arc(effectX, effectY, 30, 0, Math.PI * 2);
+                                            ctx.fill();
+                                        }
+                                    });
+                                    
+                                    // 참가자 그리기 (복싱장 스타일)
+                                    if (participant.radius > 0) {
+                                        // 그림자 (복싱장 느낌)
+                                        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                                        ctx.beginPath();
+                                        ctx.arc(participant.x + 4, participant.y + 4, participant.radius, 0, Math.PI * 2);
+                                        ctx.fill();
+                                        
+                                        // 참가자 원 (복싱장 글로브 느낌)
+                                        const gradient = ctx.createRadialGradient(
+                                            participant.x - participant.radius * 0.3, 
+                                            participant.y - participant.radius * 0.3, 
+                                            0,
+                                            participant.x, 
+                                            participant.y, 
+                                            participant.radius
+                                        );
+                                        gradient.addColorStop(0, participant.color);
+                                        gradient.addColorStop(1, '#333');
+                                        
+                                        ctx.fillStyle = gradient;
+                                        ctx.beginPath();
+                                        ctx.arc(participant.x, participant.y, participant.radius, 0, Math.PI * 2);
+                                        ctx.fill();
+                                        
+                                        // 테두리 (복싱장 글로브 느낌)
+                                        ctx.strokeStyle = participant.isInvincible ? '#FFD700' : '#654321';
+                                        ctx.lineWidth = participant.isInvincible ? 5 : 3;
+                                        ctx.stroke();
+                                        
+                                        // 내부 하이라이트 (복싱장 글로브 느낌)
+                                        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                                        ctx.beginPath();
+                                        ctx.arc(participant.x - participant.radius * 0.3, participant.y - participant.radius * 0.3, participant.radius * 0.4, 0, Math.PI * 2);
+                                        ctx.fill();
+                                        
+                                        // 이름 표시 (영문 ID, 복싱장 스타일)
+                                        ctx.fillStyle = '#FFF';
+                                        ctx.font = 'bold 14px Arial';
+                                        ctx.textAlign = 'center';
+                                        ctx.strokeStyle = '#000';
+                                        ctx.lineWidth = 2;
+                                        ctx.strokeText(participant.id, participant.x, participant.y + 5);
+                                        ctx.fillText(participant.id, participant.x, participant.y + 5);
+                                        
+                                        // 버프 효과 표시 (복싱장 스타일)
+                                        if (participant.speedMultiplier > 1.0) {
+                                            ctx.fillStyle = '#00ff00';
+                                            ctx.font = 'bold 14px Arial';
+                                            ctx.fillText('⚡', participant.x, participant.y - participant.radius - 15);
+                                        }
+                                        if (participant.hasShuriken) {
+                                            ctx.fillStyle = '#ff0000';
+                                            ctx.font = 'bold 14px Arial';
+                                            ctx.fillText('🥊', participant.x, participant.y - participant.radius - 30);
+                                        }
+                                    }
+                                });
+                                    
+                                // 게임 종료 체크
+                                if (survivors <= targetCount) {
+                                    gameRunning = false;
+                                    
+                                    // 녹화 중이면 자동으로 중지하고 저장
+                                    if (isRecording) {
+                                        stopRecording();
+                                    }
+                                    
+                                    // 우승자 표시 (복싱장 스타일)
+                                    const winners = selectedParticipants.filter(p => p.radius > 0);
+                                    
+                                    // 복싱장 링 배경 유지하면서 어둡게
+                                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                    
+                                    // 우승자 테두리 (복싱장 벨트 느낌)
+                                    ctx.strokeStyle = '#FFD700';
+                                    ctx.lineWidth = 8;
+                                    ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+                                    
+                                    ctx.fillStyle = '#FFD700';
+                                    ctx.font = 'bold 36px Arial';
+                                    ctx.textAlign = 'center';
+                                    ctx.fillText('🥊 게임 종료! 🥊', canvas.width / 2, canvas.height / 2 - 60);
+                                    
+                                    ctx.fillStyle = '#FFF';
+                                    ctx.font = 'bold 28px Arial';
+                                    ctx.fillText(`우승자: ${winners.map(w => w.name).join(', ')}`, canvas.width / 2, canvas.height / 2);
+                                    ctx.font = 'bold 24px Arial';
+                                    ctx.fillText('🏆 당첨! 🏆', canvas.width / 2, canvas.height / 2 + 35);
+                                    ctx.fillText(`게임 시간: ${((Date.now() - gameStartTime) / 1000).toFixed(1)}초`, canvas.width / 2, canvas.height / 2 + 65);
+                                    
+                                    // 초기화 버튼 생성
+                                    const resetBtn = document.createElement('button');
+                                    resetBtn.textContent = '초기화';
+                                    resetBtn.className = 'btn btn-primary';
+                                    resetBtn.style.cssText = 'margin-top: 20px;';
+                                    resetBtn.onclick = () => {
+                                        // 게임 완전 초기화
+                                        gameRunning = false; // 게임 루프 중단
+                                        
+                                        // 녹화 중이면 자동으로 중지
+                                        if (isRecording) {
+                                            stopRecording();
+                                        }
+                                        
+                                        // 캔버스 초기화
+                                        const ctx = canvas.getContext('2d');
+                                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                        
+                                        // 복싱장 배경 다시 그리기
+                                        ctx.fillStyle = '#8B4513';
+                                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                        
+                                        ctx.strokeStyle = '#654321';
+                                        ctx.lineWidth = 8;
+                                        ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+                                        
+                                        ctx.fillStyle = '#D2691E';
+                                        ctx.fillRect(12, 12, canvas.width - 24, canvas.height - 24);
+                                        
+                                        ctx.strokeStyle = '#654321';
+                                        ctx.lineWidth = 3;
+                                        ctx.beginPath();
+                                        ctx.arc(canvas.width / 2, canvas.height / 2, 80, 0, Math.PI * 2);
+                                        ctx.stroke();
+                                        
+                                        const cornerSize = 20;
+                                        ctx.fillStyle = '#654321';
+                                        ctx.fillRect(12, 12, cornerSize, cornerSize);
+                                        ctx.fillRect(canvas.width - 32, 12, cornerSize, cornerSize);
+                                        ctx.fillRect(12, canvas.height - 32, cornerSize, cornerSize);
+                                        ctx.fillRect(canvas.width - 32, canvas.height - 32, cornerSize, cornerSize);
+                                        
+                                        // 초기화 안내 메시지
+                                        ctx.fillStyle = '#FFF';
+                                        ctx.font = 'bold 24px Arial';
+                                        ctx.textAlign = 'center';
+                                        ctx.fillText('🥊 게임이 초기화되었습니다 🥊', canvas.width / 2, canvas.height / 2 - 30);
+                                        ctx.font = 'bold 18px Arial';
+                                        ctx.fillText('참가자를 선택하고 게임을 시작하세요!', canvas.width / 2, canvas.height / 2 + 10);
+                                        
+                                        // 버튼과 상태 표시 제거
+                                        buttonContainer.remove();
+                                        
+                                        // UI 상태 초기화
+                                        document.querySelectorAll('.radio-checkbox.selected').forEach(checkbox => {
+                                            checkbox.classList.remove('selected');
+                                        });
+                                        document.getElementById('selectedCount').textContent = '0';
+                                        document.getElementById('targetCount').value = '1';
+                                        document.getElementById('startBtn').disabled = true;
+                                        document.getElementById('recordBtn').disabled = true;
+                                        document.getElementById('recordBtn').textContent = '화면 녹화';
+                                        document.getElementById('recordBtn').className = 'btn btn-secondary';
+                                        document.getElementById('selectAllBtn').textContent = '전체 선택';
+                                        
+                                        // 시간 가속 변수 초기화
+                                        timeAccelerationMultiplier = 1.0;
+                                        lastAccelerationTime = Date.now();
+                                        
+                                        console.log('=== 게임 완전 초기화 완료 ===');
+                                    };
+                                    
+                                    // 버튼을 캔버스 아래에 추가
+                                    const buttonContainer = document.createElement('div');
+                                    buttonContainer.style.cssText = 'text-align: center; margin-top: 20px;';
+                                    buttonContainer.appendChild(resetBtn);
+                                    
+                                    const canvasContainer = canvas.parentNode;
+                                    canvasContainer.appendChild(buttonContainer);
+                                    
+                                    return;
+                                }
+                                    
+                                // 다음 프레임
+                                requestAnimationFrame(gameLoop);
+                            };
+                            
+                            // 게임 시작
+                            console.log(`=== 게임 시작 ===`);
+                            console.log(`초기 참가자: ${initialCount}명`);
+                            console.log(`부활 예산: ${reviveBudget}회`);
+                            console.log(`목표 생존자: ${targetCount}명`);
+                            console.log(`속도 스케일링: alpha=${ALPHA}, min=${SPEED_MIN}, max=${SPEED_MAX}`);
+                            console.log(`동일 크기 성장: ${SAME_SIZE_GROWTH_MODE} 모드, 값=${SAME_SIZE_GROWTH_VALUE}`);
+                            console.log(`스피드 아이템: 선형 증가 (1 + count) 배율`);
+                            console.log(`아이템 소멸: 수집 시 즉시 제거, 시간 제한 없음`);
+                            gameLoop();
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>
